@@ -8,6 +8,9 @@
 
 #include <windows.h>
 #include <stdint.h>
+#include <ctime>
+#include <cstdlib>
+#include <xinput.h>
 
 typedef uint8_t uint8;
 typedef uint32_t uint32;
@@ -16,26 +19,36 @@ typedef uint32_t uint32;
 #define local_persist static
 #define global_variable static
 
-global_variable bool Running; 
+struct Win32_Back_Buffer {
+    BITMAPINFO Info;
+    void *Memory;
+    int Width;
+    int Height;
+    int BytesPerPixel;
+};
 
-global_variable BITMAPINFO BitmapInfo; 
-global_variable void *BitmapMemory;
-global_variable int BitmapWidth;
-global_variable int BitmapHeight;
-global_variable int BytesPerPixel;
+struct Win32_Window_Dimension {
+    int Width;
+    int Height;
+};
 
-internal void WeirdGraphicsRenderer(int XOffset, int YOffset) {
-    int Width = BitmapWidth;
-    int Height = BitmapHeight;
+global_variable bool GlobalRunning; 
+global_variable Win32_Back_Buffer Buffer;
 
-    uint8 *Row = (uint8 *)BitmapMemory;
-    int Pitch = Width*BytesPerPixel;
-    for(int Y = 0; Y < BitmapHeight; ++Y) {
+internal int RandomizeColorValues();
+
+internal void WeirdGraphicsRenderer(Win32_Back_Buffer Buffer, int XOffset, int YOffset) {
+    int Width = Buffer.Width;
+    int Height = Buffer.Height;
+
+    uint8 *Row = (uint8 *)Buffer.Memory;
+    int Pitch = Width*Buffer.BytesPerPixel;
+    for(int Y = 0; Y < Buffer.Height; ++Y) {
 
         uint32 *Pixel = (uint32 *)Row;
-        for(int X = 0; X < BitmapWidth; ++X) {
+        for(int X = 0; X < Buffer.Width; ++X) {
             uint8 Blue = (X+XOffset);
-            uint8 Green = (Y+YOffset);
+            uint8 Green = (Y+YOffset);  //std::rand() % 256;
             
             *Pixel++ = ((Green << 8) | Blue);
         }
@@ -44,48 +57,63 @@ internal void WeirdGraphicsRenderer(int XOffset, int YOffset) {
     }
 }
 
-internal void Win32ResizeDIBSection(
+internal Win32_Window_Dimension Win32GetWindowDimensions(HWND Window) {
+    Win32_Window_Dimension Result;
+
+    RECT ClientRect;
+    GetClientRect(Window, &ClientRect);
+    Result.Width = ClientRect.right - ClientRect.left;
+    Result.Height = ClientRect.bottom - ClientRect.top;
+
+    return(Result);  
+}
+
+internal int RandomizeColorValues() {
+    return std::rand() % 256;
+}
+
+internal void Win32CopyBackBufferToWindow(
+    Win32_Back_Buffer *Buffer,
     int Width,
-    int Height
+    int Height 
 )   {
 
-    if(BitmapMemory) {  
-        VirtualFree(BitmapMemory, 0, MEM_RELEASE); 
+    if(Buffer->Memory) {  
+        VirtualFree(Buffer->Memory, 0, MEM_RELEASE); 
     }
 
-    BitmapWidth = Width;
-    BitmapHeight = Height;
+    Buffer->Width = Width;
+    Buffer->Height = Height;
 
-    BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader);
-    BitmapInfo.bmiHeader.biWidth = BitmapWidth;
-    BitmapInfo.bmiHeader.biHeight = -BitmapHeight;
-    BitmapInfo.bmiHeader.biPlanes = 1;
-    BitmapInfo.bmiHeader.biBitCount = 32;
-    BitmapInfo.bmiHeader.biCompression = BI_RGB;
+    Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader);
+    Buffer->Info.bmiHeader.biWidth = Buffer->Width;
+    Buffer->Info.bmiHeader.biHeight = -Buffer->Height;
+    Buffer->Info.bmiHeader.biPlanes = 1;
+    Buffer->Info.bmiHeader.biBitCount = 32;
+    Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
-    BytesPerPixel = 4;
-    int BitmapMemorySize = (BitmapWidth*BitmapHeight)*BytesPerPixel;
-    BitmapMemory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+    Buffer->BytesPerPixel = 4;
+    int BitmapMemorySize = (Buffer->Width*Buffer->Height)*Buffer->BytesPerPixel;
+    Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 }
 
 internal void Win32UpdateWindows(
     HDC DeviceContext,
-    RECT *WindowRect,
+    Win32_Back_Buffer Buffer,
+    int WindowWidth,
+    int WindowHeight,
     int X,
     int Y,
     int Width,
     int Height
 ) {
-    int WindowWidth = WindowRect->right - WindowRect->left;
-    int WindowHeight = WindowRect->bottom - WindowRect->top;
-
     StretchDIBits(DeviceContext,
         /*X, Y, Width, Height,
         X, Y, Width, Height, */
-        0, 0, BitmapWidth, BitmapHeight,
-        0, 0, WindowWidth, WindowHeight,            
-        BitmapMemory,
-        &BitmapInfo,
+        0, 0, WindowWidth, WindowHeight,       
+        0, 0, Buffer.Width, Buffer.Height,     
+        Buffer.Memory,
+        &Buffer.Info,
         DIB_RGB_COLORS,
         SRCCOPY
     );
@@ -104,23 +132,19 @@ LRESULT CALLBACK Win32MainWindowCallBack(
     {
         case WM_SIZE:
         {
-            RECT ClientRect;
-            GetClientRect(Window, &ClientRect);
-            int width = ClientRect.right - ClientRect.left;
-            int height = ClientRect.bottom - ClientRect.top;
-
-            Win32ResizeDIBSection(width, height);
+            // Win32_Window_Dimension Dimension = Win32GetWindowDimensions(Window);
+            // Win32CopyBackBufferToWindow(&Buffer, Dimension.Width, Dimension.Height);
             
         } break;
 
         case WM_DESTROY:
         {
-            Running = false;
+            GlobalRunning = false;
         } break;
 
         case WM_CLOSE:
         {
-            Running = false;
+            GlobalRunning = false;
         }break;
 
         case WM_ACTIVATEAPP:
@@ -138,10 +162,9 @@ LRESULT CALLBACK Win32MainWindowCallBack(
             int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
             int Width = Paint.rcPaint.right - Paint.rcPaint.left;
 
-            RECT ClientRect;
-            GetClientRect(Window, &ClientRect); 
+            Win32_Window_Dimension Dimension = Win32GetWindowDimensions(Window);
 
-            Win32UpdateWindows(DeviceContext, &ClientRect, X, Y, Width, Height);
+            Win32UpdateWindows(DeviceContext, Buffer, Dimension.Width, Dimension.Height, X, Y, Width, Height);
             EndPaint(Window, &Paint);
 
 
@@ -170,6 +193,8 @@ int CALLBACK WinMain(
 ) {
     WNDCLASSA WindowClass = {};
 
+    Win32CopyBackBufferToWindow(&Buffer, 1280, 720);
+
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallBack;
     WindowClass.hInstance = Instannce;
@@ -193,30 +218,42 @@ int CALLBACK WinMain(
         );
 
         if (Window) {  
+            std::srand(std::time(0));
             int XOffset = 0;
             int YOffset = 0;
-            Running = true;
-            while (Running){
+            GlobalRunning = true;
+            while (GlobalRunning){
                 
 
                 MSG Message;
                 while(PeekMessageA(&Message, 0, 0, 0, PM_REMOVE)) {
                     if(Message.message == WM_QUIT) {
-                        Running = false;
+                        GlobalRunning = false;
                     }
 
                     TranslateMessage(&Message);
                     DispatchMessage(&Message);
                 }
 
-                WeirdGraphicsRenderer(XOffset, YOffset);
-                HDC DeviceContext = GetDC(Window);
-                RECT ClientRect;
-                GetClientRect(Window, &ClientRect);
+                for(DWORD ControllerIndex = 0; ControllerIndex < XUSER_MAX_COUNT; ControllerIndex++) {
+                    XINPUT_STATE XInputState;
+                    
+                    if(XInputGetState(ControllerIndex, &XInputState) == ERROR_SUCCESS) {
+                        XINPUT_GAMEPAD *Pad = &XInputState.Gamepad;
 
-                int WindowWidth = ClientRect.right - ClientRect.left;
-                int WindowHeight = ClientRect.bottom - ClientRect.top;
-                Win32UpdateWindows(DeviceContext, &ClientRect, 0, 0, WindowWidth, WindowHeight);
+                        
+                    } else {
+
+                    }
+                }
+
+                WeirdGraphicsRenderer(Buffer, XOffset, YOffset);
+                HDC DeviceContext = GetDC(Window);
+                Win32_Window_Dimension Dimension = Win32GetWindowDimensions(Window);
+
+                Win32UpdateWindows(DeviceContext, Buffer, 
+                    Dimension.Width, Dimension.Height, 0, 0, 
+                    Dimension.Width, Dimension.Height);
                 ReleaseDC(Window, DeviceContext);
 
                 ++XOffset;

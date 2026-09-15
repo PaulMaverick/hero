@@ -6,7 +6,7 @@ pushd ..\build
 set Compiler=g++
 
 %Compiler% ^
-    W:\handmadehero\win32_handmade.cpp ^
+    W:\handmade\hero\win32_handmade.cpp ^
     -g ^
     -o handmade.exe ^
     -luser32 ^
