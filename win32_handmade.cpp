@@ -236,12 +236,23 @@ int CALLBACK WinMain(
                 }
 
                 for(DWORD ControllerIndex = 0; ControllerIndex < XUSER_MAX_COUNT; ControllerIndex++) {
-                    XINPUT_STATE XInputState;
+                    XINPUT_STATE XControllerState;
                     
-                    if(XInputGetState(ControllerIndex, &XInputState) == ERROR_SUCCESS) {
-                        XINPUT_GAMEPAD *Pad = &XInputState.Gamepad;
+                    if(XInputGetState(ControllerIndex, &XControllerState) == ERROR_SUCCESS) {
+                        XINPUT_GAMEPAD *Pad = &XControllerState.Gamepad;
 
-                        
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_START);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_BACK);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_X);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_Y);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_A);
+                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_B);
                     } else {
 
                     }
