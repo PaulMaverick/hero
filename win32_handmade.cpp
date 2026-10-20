@@ -31,9 +31,35 @@ struct Win32_Window_Dimension {
     int Width;
     int Height;
 };
-
 global_variable bool GlobalRunning; 
 global_variable Win32_Back_Buffer Buffer;
+
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+typedef X_INPUT_SET_STATE(x_input_set_state);
+
+X_INPUT_GET_STATE(XInputGetStateStub) {
+    return(0);
+}
+X_INPUT_SET_STATE(XInputSetStateStub) {
+    return(0);
+}
+
+global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
+global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub; 
+#define XInputGetState XInputGetState_
+#define XInputSetState XInputSetState_
+
+internal void Win32LoadXinput(void) {
+    HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
+
+    if(XInputLibrary) {
+        XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
+        XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
+    }
+}
+
 
 internal int RandomizeColorValues();
 
@@ -142,6 +168,40 @@ LRESULT CALLBACK Win32MainWindowCallBack(
             GlobalRunning = false;
         } break;
 
+        case WM_SYSKEYDOWN:
+        case WM_SYSKEYUP:
+        case WM_KEYDOWN:
+        case WM_KEYUP: 
+        {
+            uint32 VKCode = WParam;
+            if(VKCode == 'W') {
+
+            } else if (VKCode == 'A') {
+
+            } else if (VKCode == 'S') {
+
+            } else if (VKCode == 'D') {
+                
+            } else if (VKCode == 'Q') {
+                
+            } else if (VKCode == 'E') {
+                
+            } else if (VKCode == VK_UP) {
+                
+            } else if (VKCode ==  VK_LEFT) {
+                
+            } else if (VKCode ==  VK_DOWN) {
+                 
+            } else if (VKCode ==  VK_RIGHT) {
+                
+            } else if (VKCode ==  VK_ESCAPE) {
+                
+            } else if (VKCode ==  VK_SPACE) {
+                
+            }
+            //LParam & (1 << 30);
+        } break;
+
         case WM_CLOSE:
         {
             GlobalRunning = false;
@@ -163,7 +223,6 @@ LRESULT CALLBACK Win32MainWindowCallBack(
             int Width = Paint.rcPaint.right - Paint.rcPaint.left;
 
             Win32_Window_Dimension Dimension = Win32GetWindowDimensions(Window);
-
             Win32UpdateWindows(DeviceContext, Buffer, Dimension.Width, Dimension.Height, X, Y, Width, Height);
             EndPaint(Window, &Paint);
 
@@ -191,6 +250,7 @@ int CALLBACK WinMain(
     LPSTR CommandLine,
     int CodeShow
 ) {
+    Win32LoadXinput();
     WNDCLASSA WindowClass = {};
 
     Win32CopyBackBufferToWindow(&Buffer, 1280, 720);
@@ -239,20 +299,29 @@ int CALLBACK WinMain(
                     XINPUT_STATE XControllerState;
                     
                     if(XInputGetState(ControllerIndex, &XControllerState) == ERROR_SUCCESS) {
+                        OutputDebugStringA("CONTROLLER FOUND!\n");
                         XINPUT_GAMEPAD *Pad = &XControllerState.Gamepad;
 
                         BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_START);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_BACK);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_X);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_Y);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_A);
-                        BOOL DPadUp  = (Pad->wButtons & XINPUT_GAMEPAD_B);
+                        BOOL DPadLeft  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+                        BOOL DPadRight  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+                        BOOL DPadDown  = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN); 
+                        BOOL Start  = (Pad->wButtons & XINPUT_GAMEPAD_START);
+                        BOOL Back  = (Pad->wButtons & XINPUT_GAMEPAD_BACK);
+                        BOOL LeftShoulder  = (Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
+                        BOOL RightShoulder  = (Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
+                        BOOL XButton  = (Pad->wButtons & XINPUT_GAMEPAD_X);
+                        BOOL YButton  = (Pad->wButtons & XINPUT_GAMEPAD_Y);
+                        BOOL AButton  = (Pad->wButtons & XINPUT_GAMEPAD_A);
+                        BOOL BButton  = (Pad->wButtons & XINPUT_GAMEPAD_B);
+
+                        INT16 StickX = Pad->sThumbLX;
+                        INT16 StickY = Pad->sThumbLY;
+
+                        if(AButton) {
+                            OutputDebugStringA("A BUTTON!\n");
+                            YOffset += 2;
+                        }
                     } else {
 
                     }
